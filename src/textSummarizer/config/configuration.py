@@ -7,6 +7,7 @@ from textSummarizer.entity import (
     DataIngestionConfig,
     DataValidationConfig,
     DataTransformationConfig,
+    ModelEvaluationConfig
 )
 
 
@@ -67,26 +68,41 @@ class ConfigurationManager:
         )
 
     def get_model_trainer_config(self) -> ModelTrainerConfig:
-        mt = self.config.model_trainer
-        ta = self.params.TrainingArguments
+        config = self.config.model_trainer
+        params = self.params.TrainingArguments   # NOTE: params should come from self.params
 
-        # fix typo in config.yaml (artifcats)
-        root_dir = mt.root_dir
+        create_directories([config.root_dir])
 
-        create_directories([root_dir])
+        model_trainer_config = ModelTrainerConfig(
+             root_dir=config.root_dir,
+             data_path=config.data_path,
+            model_ckpt=config.model_ckpt,
 
-        return ModelTrainerConfig(
-            root_dir=Path(root_dir),
-            data_path=Path(mt.data_path),
-            model_ckpt=str(mt.model_ckpt),
-            num_train_epochs=int(ta.num_train_epochs),
-            warmup_steps=int(ta.warmup_steps),
-            per_device_train_batch_size=int(ta.per_device_train_batch_size),
-            weight_decay=float(ta.weight_decay),
-            logging_steps=int(ta.logging_steps),
-            evaluation_strategy=str(ta.evaluation_strategy),
-            eval_steps=int(ta.eval_steps),
-            save_steps=float(ta.save_steps),
-            gradient_accumulation_steps=int(ta.gradient_accumulation_steps),
+            num_train_epochs=params.num_train_epochs,
+            warmup_steps=params.warmup_steps,
+            per_device_train_batch_size=params.per_device_train_batch_size,
+            weight_decay=params.weight_decay,
+            logging_steps=params.logging_steps,
+            evaluation_strategy=params.evaluation_strategy,
+            eval_steps=params.eval_steps,
+            save_steps=params.save_steps,
+            gradient_accumulation_steps=params.gradient_accumulation_steps
+        )   
+
+        return model_trainer_config
+        
+    
+    def get_model_evaluation_config(self):
+
+        config = self.config.model_evaluation
+
+        model_evaluation_config = ModelEvaluationConfig(
+            root_dir=config.root_dir,
+            data_path=config.data_path,
+            model_path=config.model_path,
+            tokenizer_path=config.tokenizer_path,
+            metric_file_name=config.metric_file_name
         )
 
+        return model_evaluation_config
+        

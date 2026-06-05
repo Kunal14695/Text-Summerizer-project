@@ -1,33 +1,10 @@
-import os
-from dataclasses import dataclass
-from pathlib import Path
-
+from transformers import TrainingArguments, Trainer
+from transformers import DataCollatorForSeq2Seq
+from transformers import AutoModelForSeq2SeqLM, AutoTokenizer
+from datasets import load_dataset, load_from_disk
 import torch
-from datasets import load_from_disk
-from transformers import (
-    AutoModelForSeq2SeqLM,
-    AutoTokenizer,
-    DataCollatorForSeq2Seq,
-    Trainer,
-    TrainingArguments,
-)
-
-
-@dataclass(frozen=True)
-class ModelTrainerConfig:
-    root_dir: Path
-    data_path: Path
-    model_ckpt: str
-
-    num_train_epochs: int
-    warmup_steps: int
-    per_device_train_batch_size: int
-    weight_decay: float
-    logging_steps: int
-    evaluation_strategy: str
-    eval_steps: int
-    save_steps: float
-    gradient_accumulation_steps: int
+import os
+from textSummarizer.entity import ModelTrainerConfig
 
 
 class ModelTrainer:
@@ -38,41 +15,46 @@ class ModelTrainer:
         device = "cuda" if torch.cuda.is_available() else "cpu"
 
         tokenizer = AutoTokenizer.from_pretrained(self.config.model_ckpt)
-        model = AutoModelForSeq2SeqLM.from_pretrained(self.config.model_ckpt).to(device)
 
-        data_collator = DataCollatorForSeq2Seq(tokenizer=tokenizer, model=model)
+        model_pegasus = AutoModelForSeq2SeqLM.from_pretrained(
+            self.config.model_ckpt
+        ).to(device)
 
-        dataset = load_from_disk(str(self.config.data_path))
+        seq2seq_data_collector = DataCollatorForSeq2Seq(
+            tokenizer, model=model_pegasus
+        )
+
+        dataset_samsum_pt = load_from_disk(self.config.data_path)
 
         trainer_args = TrainingArguments(
-            output_dir=str(self.config.root_dir),
-            num_train_epochs=self.config.num_train_epochs,
-            warmup_steps=self.config.warmup_steps,
-            per_device_train_batch_size=self.config.per_device_train_batch_size,
-            per_device_eval_batch_size=self.config.per_device_train_batch_size,
-            weight_decay=self.config.weight_decay,
-            logging_steps=self.config.logging_steps,
-            evaluation_strategy=self.config.evaluation_strategy,
-            eval_steps=self.config.eval_steps,
-            save_steps=self.config.save_steps,
-            gradient_accumulation_steps=self.config.gradient_accumulation_steps,
-            predict_with_generate=False,
-            fp16=torch.cuda.is_available(),
-            remove_unused_columns=False,
+            output_dir=self.config.root_dir,
+            num_train_epochs=1,
+            per_device_train_batch_size=1,
+            per_device_eval_batch_size=1,
+            gradient_accumulation_steps=4,
+            logging_steps=10,
+            save_steps=1000,
+            eval_strategy="no",
+            report_to="none"
         )
 
         trainer = Trainer(
-            model=model,
+            model=model_pegasus,
             args=trainer_args,
             tokenizer=tokenizer,
-            data_collator=data_collator,
-            train_dataset=dataset["train"],
-            eval_dataset=dataset.get("validation"),
+            data_collator=seq2seq_data_collector,
+            train_dataset=dataset_samsum_pt["train"],
+            eval_dataset=dataset_samsum_pt["validation"]
         )
 
         trainer.train()
 
         os.makedirs(self.config.root_dir, exist_ok=True)
-        model.save_pretrained(os.path.join(self.config.root_dir, "pegasus-samsum-model"))
-        tokenizer.save_pretrained(os.path.join(self.config.root_dir, "tokenizer"))
 
+        model_pegasus.save_pretrained(
+            os.path.join(self.config.root_dir, "flan-t5-small-samsum-model")
+        )
+
+        tokenizer.save_pretrained(
+            os.path.join(self.config.root_dir, "tokenizer")
+        )
