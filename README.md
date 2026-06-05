@@ -215,7 +215,7 @@ http://127.0.0.1:8000/docs
 
 ## Future Improvements
 * Create ECR repo to store / save docker image
- - Save the URI : 161327179139.dkr.ecr.ap-southeast-2.amazonaws.com/text-s
+ - Save the URI : 
 * Deploy using Docker
 * Deploy on AWS/GCP/Azure
 * Add model monitoring
